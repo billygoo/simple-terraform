@@ -6,7 +6,7 @@ resource "aws_iam_role" "vpc_peering_role" {
       {
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${data.terraform_remote_state.account1_vpc.outputs.account_id}:user/smgu1"
+          AWS = "arn:aws:iam::${data.terraform_remote_state.external_vpc.outputs.account_id}:user/smgu1"
         }
         Action = "sts:AssumeRole"
       }
@@ -39,5 +39,5 @@ resource "aws_iam_policy" "vpc_peering_policy" {
 
 resource "aws_iam_role_policy_attachment" "vpc_peering_role_policy_attachment" {
   policy_arn = aws_iam_policy.vpc_peering_policy.arn
-  role = aws_iam_role.vpc_peering_role.name
+  role       = aws_iam_role.vpc_peering_role.name
 }

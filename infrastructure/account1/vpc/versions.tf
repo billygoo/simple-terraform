@@ -1,6 +1,15 @@
-data "terraform_remote_state" "external_vpc" {
-  backend = "s3"
-  config = {
+terraform {
+  required_version = ">= 1.4.4"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 4.60.0"
+    }
+  }
+
+  backend "s3" {
+    encrypt                 = true
     bucket                  = "kcd-temp-tf-backend"
     key                     = "account1/vpc/terraform.tfstate"
     region                  = "ap-northeast-2"
@@ -8,5 +17,3 @@ data "terraform_remote_state" "external_vpc" {
     shared_credentials_file = "~/.aws/credentials"
   }
 }
-
-data "aws_caller_identity" "current" {}

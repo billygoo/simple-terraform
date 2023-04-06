@@ -1,77 +1,55 @@
-terraform {
-  required_version = ">= 1.4.4"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 4.60.0"
-    }
-  }
-
-  backend "s3" {
-    encrypt                 = true
-    bucket                  = "kcd-temp-tf-backend"
-    key                     = "account1/vpc/terraform.tfstate"
-    region                  = "ap-northeast-2"
-    profile                 = "account1"
-    shared_credentials_file = "~/.aws/credentials"
-  }
-}
-
 provider "aws" {
-  region                   = local.region
+  region                   = "ap-northeast-2"
   profile                  = "account1"
   shared_credentials_files = ["~/.aws/credentials"]
 }
 
 provider "aws" {
-  region                   = local.region
+  region                   = "ap-northeast-2"
   profile                  = "account2"
   shared_credentials_files = ["~/.aws/credentials"]
   alias                    = "account2"
 }
 
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
 
-resource "aws_vpc" "management" {
-  # 10.0.0.0 ~ 10.0.3.255 (1024 ea)
-  cidr_block = "10.0.0.0/22"
+  enable_dns_hostnames = "true"
+  enable_dns_support   = "true"
 
   tags = {
-    Name = "management-vpc"
+    Name = "${var.vpc_name}-vpc"
   }
 }
 
-resource "aws_internet_gateway" "management" {
-  vpc_id = aws_vpc.management.id
+resource "aws_internet_gateway" "main_vpc_igw" {
+  vpc_id = aws_vpc.main.id
   tags = {
-    Name = "management-igw"
+    Name = "${var.vpc_name}-igw"
   }
 }
 
-resource "aws_subnet" "management" {
-  vpc_id = aws_vpc.management.id
-  # 10.0.0.0 ~ 10.0.0.255
-  cidr_block        = "10.0.0.0/24"
-  availability_zone = local.az
+resource "aws_subnet" "private_subnet" {
+  for_each = var.vpc_subnet_cidrs
+  vpc_id = aws_vpc.main.id
+
+  availability_zone = each.key
+  cidr_block        = each.value
 
   tags = {
-    Name = "management-private-subnet-${local.az}"
+    Name = "${var.vpc_name}-private-subnet-${each.key}"
   }
 }
 
-resource "aws_security_group" "allow_only_tester" {
-  name_prefix = "mgmt-sg-"
-  vpc_id      = aws_vpc.management.id
+resource "aws_security_group" "main_sg" {
+  name_prefix = "${var.vpc_name}-sg"
+  vpc_id      = aws_vpc.main.id
 
   ingress {
     from_port = 0
     to_port   = 65535
     protocol  = "tcp"
-    cidr_blocks = [
-      aws_vpc.management.cidr_block,
-      data.terraform_remote_state.account2_vpc.outputs.subnet_cidr,
-
-    "1.238.185.24/32"]
+    cidr_blocks = setunion(["1.238.185.24/32", var.vpc_cidr], values(var.vpc_subnet_cidrs))
   }
 
   egress {
@@ -82,48 +60,56 @@ resource "aws_security_group" "allow_only_tester" {
   }
 
   tags = {
-    Name = "sg-allow_only_tester"
+    Name = "allow_only_tester-sg"
   }
 }
 
-resource "aws_vpc_peering_connection" "account1_to_account2" {
-  peer_owner_id = data.terraform_remote_state.account2_vpc.outputs.account_id
-  peer_vpc_id = data.terraform_remote_state.account2_vpc.outputs.vpc_id
-
-  vpc_id      = aws_vpc.management.id
+resource "aws_route_table" "main_private_rt" {
+  vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "peering_account1_to_account2_${local.az}"
+    Name = "${var.vpc_name}-rt"
+  }
+}
+
+resource "aws_route" "internet-gateway" {
+  route_table_id         = aws_route_table.main_private_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.main_vpc_igw.id
+}
+
+
+resource "aws_route_table_association" "route-table-association" {
+  for_each = var.vpc_subnet_cidrs
+  subnet_id      = aws_subnet.private_subnet[each.key].id
+  route_table_id = aws_route_table.main_private_rt.id
+}
+
+
+############################################################################################
+# Peering Section
+############################################################################################
+resource "aws_vpc_peering_connection" "account1_to_account2" {
+  peer_owner_id = data.terraform_remote_state.external_vpc.outputs.account_id
+  peer_vpc_id   = data.terraform_remote_state.external_vpc.outputs.vpc_id
+
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "peering_account1_to_account2"
   }
 }
 
 resource "aws_vpc_peering_connection_accepter" "account_b_accepter" {
   provider                  = aws.account2
   vpc_peering_connection_id = aws_vpc_peering_connection.account1_to_account2.id
-  auto_accept = true
+  auto_accept               = true
 }
 
-resource "aws_route_table" "management" {
-  vpc_id = aws_vpc.management.id
-
-  tags = {
-    Name = "management-rt"
-  }
-}
-
-resource "aws_route" "account1_to_account2" {
-  route_table_id            = aws_route_table.management.id
-  destination_cidr_block    = data.terraform_remote_state.account2_vpc.outputs.subnet_cidr
+resource "aws_route" "private_route" {
+  count           = length(local.external_vpc_subnet_cidrs)
+  route_table_id            = aws_route_table.main_private_rt.id
+  destination_cidr_block    = element(local.external_vpc_subnet_cidrs, count.index)
   vpc_peering_connection_id = aws_vpc_peering_connection.account1_to_account2.id
 }
 
-resource "aws_route" "internet-gateway" {
-  route_table_id            = aws_route_table.management.id
-  destination_cidr_block    = "0.0.0.0/0"
-  gateway_id = aws_internet_gateway.management.id
-}
-
-resource "aws_route_table_association" "route-table-association" {
-  subnet_id      = aws_subnet.management.id
-  route_table_id = aws_route_table.management.id
-}

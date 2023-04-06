@@ -3,19 +3,19 @@ output "account_id" {
 }
 
 output "vpc_id" {
-  value = aws_vpc.management.id
+  value = aws_vpc.main.id
 }
 
-output "subnet" {
-  value = aws_subnet.management
+output "private_subnet_ids" {
+  value = values(aws_subnet.private_subnet)[*].id
 }
 
-output "subnet_cidr" {
-  value = aws_subnet.management.cidr_block
+output "private_subnet_cidrs" {
+  value = values(aws_subnet.private_subnet)[*].cidr_block
 }
 
 output "security_group_id" {
-  value = aws_security_group.allow_only_tester.id
+  value = aws_security_group.main_sg.id
 }
 
 output "vpc_peering_connection_id" {

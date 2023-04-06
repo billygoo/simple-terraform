@@ -1,69 +1,48 @@
-terraform {
-  required_version = "1.4.4"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 4.60.0"
-    }
-  }
-
-  backend "s3" {
-    encrypt                 = true
-    bucket                  = "kcd-temp-tf-backend"
-    key                     = "account2/vpc/terraform.tfstate"
-    region                  = "ap-northeast-2"
-    profile                 = "account1"
-    shared_credentials_file = "~/.aws/credentials"
-  }
-}
-
 provider "aws" {
   region                   = "ap-northeast-2"
   profile                  = "account2"
   shared_credentials_files = ["~/.aws/credentials"]
 }
 
-resource "aws_vpc" "staging" {
-  # 172.16.0.0 ~ 172.16.3.255 (1024 ea)
-  cidr_block = "172.16.0.0/22"
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+
+  enable_dns_hostnames = "true"
+  enable_dns_support   = "true"
 
   tags = {
-    Name = "staging-vpc"
+    Name = "${var.vpc_name}-vpc"
   }
 }
 
-resource "aws_internet_gateway" "staging" {
-  vpc_id = aws_vpc.staging.id
+resource "aws_internet_gateway" "main_vpc_igw" {
+  vpc_id = aws_vpc.main.id
   tags = {
-    Name = "staging-igw"
+    Name = "${var.vpc_name}-igw"
   }
 }
 
-resource "aws_subnet" "staging" {
-  vpc_id = aws_vpc.staging.id
-  # 172.16.0.0 ~ 172.16.0.255
-  cidr_block        = "172.16.0.0/24"
-  availability_zone = "ap-northeast-2a"
+resource "aws_subnet" "private_subnet" {
+  for_each = var.vpc_subnet_cidrs
+  vpc_id = aws_vpc.main.id
+
+  availability_zone = each.key
+  cidr_block        = each.value
 
   tags = {
-    Name = "staging-private-subnet-ap-northeast-2a"
+    Name = "${var.vpc_name}-private-subnet-${each.key}"
   }
 }
 
-resource "aws_security_group" "allow_only_tester" {
-  name_prefix = "staging-sg"
-  vpc_id      = aws_vpc.staging.id
+resource "aws_security_group" "main_sg" {
+  name_prefix = "${var.vpc_name}-sg"
+  vpc_id      = aws_vpc.main.id
 
   ingress {
     from_port = 0
     to_port   = 65535
     protocol  = "tcp"
-    cidr_blocks = [
-      aws_vpc.staging.cidr_block,
-      data.terraform_remote_state.account1_vpc.outputs.subnet_cidr,
-      "1.238.185.24/32"
-    ]
+    cidr_blocks = setunion(["1.238.185.24/32", var.vpc_cidr], values(var.vpc_subnet_cidrs))
   }
 
   egress {
@@ -74,31 +53,37 @@ resource "aws_security_group" "allow_only_tester" {
   }
 
   tags = {
-    Name = "allow_only_tester"
+    Name = "allow_only_tester-sg"
   }
 }
 
-resource "aws_route_table" "staging" {
-  vpc_id = aws_vpc.staging.id
+resource "aws_route_table" "main_private_rt" {
+  vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "staging-rt"
+    Name = "${var.vpc_name}-rt"
   }
-}
-
-resource "aws_route" "account1_to_account2" {
-  route_table_id            = aws_route_table.staging.id
-  destination_cidr_block    = data.terraform_remote_state.account1_vpc.outputs.subnet_cidr
-  vpc_peering_connection_id = data.terraform_remote_state.account1_vpc.outputs.vpc_peering_connection_id
 }
 
 resource "aws_route" "internet-gateway" {
-  route_table_id            = aws_route_table.staging.id
-  destination_cidr_block    = "0.0.0.0/0"
-  gateway_id = aws_internet_gateway.staging.id
+  route_table_id         = aws_route_table.main_private_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.main_vpc_igw.id
 }
 
+
 resource "aws_route_table_association" "route-table-association" {
-  subnet_id      = aws_subnet.staging.id
-  route_table_id = aws_route_table.staging.id
+  for_each = var.vpc_subnet_cidrs
+  subnet_id      = aws_subnet.private_subnet[each.key].id
+  route_table_id = aws_route_table.main_private_rt.id
+}
+
+############################################################################################
+# Peering Section
+############################################################################################
+resource "aws_route" "private_route" {
+  count           = length(local.external_vpc_subnet_cidrs)
+  route_table_id            = aws_route_table.main_private_rt.id
+  destination_cidr_block    = element(local.external_vpc_subnet_cidrs, count.index)
+  vpc_peering_connection_id = local.external_vpc_peering_id
 }
