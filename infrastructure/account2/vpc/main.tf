@@ -24,7 +24,7 @@ resource "aws_internet_gateway" "main_vpc_igw" {
 
 resource "aws_subnet" "private_subnet" {
   for_each = var.vpc_subnet_cidrs
-  vpc_id = aws_vpc.main.id
+  vpc_id   = aws_vpc.main.id
 
   availability_zone = each.key
   cidr_block        = each.value
@@ -39,9 +39,9 @@ resource "aws_security_group" "main_sg" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    from_port = 0
-    to_port   = 65535
-    protocol  = "tcp"
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
     cidr_blocks = setunion(["1.238.185.24/32", var.vpc_cidr], values(var.vpc_subnet_cidrs))
   }
 
@@ -73,7 +73,7 @@ resource "aws_route" "internet-gateway" {
 
 
 resource "aws_route_table_association" "route-table-association" {
-  for_each = var.vpc_subnet_cidrs
+  for_each       = var.vpc_subnet_cidrs
   subnet_id      = aws_subnet.private_subnet[each.key].id
   route_table_id = aws_route_table.main_private_rt.id
 }
@@ -82,7 +82,7 @@ resource "aws_route_table_association" "route-table-association" {
 # Peering Section
 ############################################################################################
 resource "aws_route" "private_route" {
-  count           = length(local.external_vpc_subnet_cidrs)
+  count                     = length(local.external_vpc_subnet_cidrs)
   route_table_id            = aws_route_table.main_private_rt.id
   destination_cidr_block    = element(local.external_vpc_subnet_cidrs, count.index)
   vpc_peering_connection_id = local.external_vpc_peering_id
