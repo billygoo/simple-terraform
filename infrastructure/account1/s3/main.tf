@@ -1,6 +1,6 @@
 provider "aws" {
-  region                  = "ap-northeast-2"
-  profile                 = "account1"
+  region                   = "ap-northeast-2"
+  profile                  = "account1"
   shared_credentials_files = ["~/.aws/credentials"]
 }
 
