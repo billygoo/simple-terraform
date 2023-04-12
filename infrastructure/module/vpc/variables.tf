@@ -31,3 +31,21 @@ variable "enable_dns_hostnames" {
 variable "accesscontrol_tgw_id" {
   description = "The ID of Transit gateway for cross access."
 }
+
+variable "additional_cidr" {
+  description = "Additional CIDR to control access for security group"
+  type        = list(string)
+  default     = []
+}
+
+variable "public_subnet_tags" {
+  description = "Additional tags for the public subnets"
+  type        = map(string)
+  default     = {}
+}
+
+variable "private_subnet_tags" {
+  description = "Additional tags for the private subnets"
+  type        = map(string)
+  default     = {}
+}

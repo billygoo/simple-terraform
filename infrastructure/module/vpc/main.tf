@@ -22,9 +22,12 @@ resource "aws_subnet" "public" {
   cidr_block        = var.public_subnets[count.index]
   availability_zone = var.availability_zones[count.index]
 
-  tags = {
-    Name = "${var.vpc_name}-Public-Subnet-${var.availability_zones[count.index]}"
-  }
+  tags = merge(
+    {
+      Name = "${var.vpc_name}-Public-Subnet-${var.availability_zones[count.index]}"
+    },
+    var.public_subnet_tags
+  )
 
   lifecycle {
     ignore_changes = [
@@ -43,7 +46,10 @@ resource "aws_subnet" "private" {
   cidr_block        = var.private_subnets[count.index]
   availability_zone = var.availability_zones[count.index]
 
-  tags = {
-    Name = "${var.vpc_name}-Pirvate-${var.availability_zones[count.index]}"
-  }
+  tags = merge(
+    {
+      Name = "${var.vpc_name}-Private-Subnet-${var.availability_zones[count.index]}"
+    },
+    var.private_subnet_tags
+  )
 }

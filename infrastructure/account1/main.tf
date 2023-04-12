@@ -7,12 +7,13 @@ provider "aws" {
 locals {
   vpc_name          = "cicd"
   vpc_cidr          = "10.0.0.0/16"
-  external_vpc_cidr = "10.1.0.0/16"
+  external_vpc_cidr = ["10.1.0.0/16"] # other vpc cidr
   azs               = ["ap-northeast-2a", "ap-northeast-2c"]
   public_subnets    = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets   = ["10.0.3.0/24", "10.0.4.0/24"]
 
-  account_id = data.aws_caller_identity.current.account_id
+  account_id   = data.aws_caller_identity.current.account_id
+  cluster_name = "cicd-eks"
 }
 
 module "vpc" {
@@ -22,46 +23,17 @@ module "vpc" {
   availability_zones = local.azs
   public_subnets     = local.public_subnets
   private_subnets    = local.private_subnets
+  additional_cidr    = local.external_vpc_cidr
 
   accesscontrol_tgw_id = aws_ec2_transit_gateway.accesscontrol.id
-}
 
-resource "aws_security_group" "cicd-sg" {
-  name_prefix = "${local.vpc_name}-sg"
-  vpc_id      = module.vpc.vpc_id
-
-  ingress {
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["1.238.185.24/32", module.vpc.vpc_cidr, local.external_vpc_cidr]
+  public_subnet_tags = {
+    "kubernetes.io/cluster/${local.cluster_name}" = "shared"
+    "kubernetes.io/role/elb"                      = 1
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow outbound connections to internet"
-  }
-
-  # egress {
-  #   from_port   = 80
-  #   to_port     = 80
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  #   description = "Allow HTTP connections to internet"
-  # }
-
-  # egress {
-  #   from_port   = 443
-  #   to_port     = 443
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  #   description = "Allow HTTPS connections to internet"
-  # }
-
-  tags = {
-    Name = "${local.vpc_name}-default-sg"
+  private_subnet_tags = {
+    "kubernetes.io/cluster/${local.cluster_name}" = "shared"
+    "kubernetes.io/role/internal-elb"             = 1
   }
 }

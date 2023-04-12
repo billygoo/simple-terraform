@@ -41,3 +41,7 @@ output "private_route_table_ids" {
 output "tgw_accesscontrol_attachment_id" {
   value = aws_ec2_transit_gateway_vpc_attachment.private_accesscontrol.id
 }
+
+output "default_sg_id" {
+  value = aws_security_group.vpc-sg.id
+}
