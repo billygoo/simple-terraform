@@ -11,7 +11,7 @@ terraform {
   backend "s3" {
     encrypt                 = true
     bucket                  = "kcd-temp-tf-backend"
-    key                     = "account2/vpc/terraform.tfstate"
+    key                     = "account2/terraform.tfstate"
     region                  = "ap-northeast-2"
     profile                 = "account1"
     shared_credentials_file = "~/.aws/credentials"
