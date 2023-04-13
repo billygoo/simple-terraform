@@ -1,3 +1,9 @@
-output "aws_s3_bucket_kcd-temp-tf-backend_id" {
-  value = aws_s3_bucket.kcd-temp-tf-backend.id
+output "s3_bucket_arn" {
+  value = aws_s3_bucket.kcd-temp-tf-backend.arn
+  description = "The ARN of the S3 bucket"
+}
+
+output "lock_dynamodb_table_name" {
+  value = aws_dynamodb_table.terraform_locks.name
+  description = "The name of the DynamoDB Table"
 }

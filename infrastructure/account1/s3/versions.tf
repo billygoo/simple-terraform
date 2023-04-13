@@ -15,5 +15,7 @@ terraform {
     region                  = "ap-northeast-2"
     profile                 = "account1"
     shared_credentials_file = "~/.aws/credentials"
+
+    dynamodb_table = "terraform-locks"
   }
 }
