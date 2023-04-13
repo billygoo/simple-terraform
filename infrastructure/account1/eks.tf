@@ -4,10 +4,10 @@ data "aws_availability_zones" "available" {}
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "19.5.1"
+  version = "19.13.0"
 
   cluster_name    = local.cluster_name
-  cluster_version = "1.24"
+  cluster_version = "1.26"
 
   vpc_id                         = module.vpc.vpc_id
   subnet_ids                     = module.vpc.private_subnet_ids
@@ -39,7 +39,7 @@ data "aws_iam_policy" "ebs_csi_policy" {
 
 module "irsa-ebs-csi" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
-  version = "4.7.0"
+  version = "5.17.0"
 
   create_role                   = true
   role_name                     = "AmazonEKSTFEBSCSIRole-${module.eks.cluster_name}"
@@ -48,10 +48,12 @@ module "irsa-ebs-csi" {
   oidc_fully_qualified_subjects = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
 }
 
+# Check version using below command : 
+# `aws eks describe-addon-versions --addon-name aws-ebs-csi-driver --kubernetes-version 1.26 --region ap-northeast-2`
 resource "aws_eks_addon" "ebs-csi" {
   cluster_name             = module.eks.cluster_name
   addon_name               = "aws-ebs-csi-driver"
-  addon_version            = "v1.5.2-eksbuild.1"
+  addon_version            = "v1.17.0-eksbuild.1"
   service_account_role_arn = module.irsa-ebs-csi.iam_role_arn
   tags = {
     "eks_addon" = "ebs-csi"

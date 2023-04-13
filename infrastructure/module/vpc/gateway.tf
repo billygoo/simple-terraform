@@ -33,17 +33,6 @@ resource "aws_nat_gateway" "ngw" {
   }
 }
 
-# resource "aws_nat_gateway" "private_ngw" {
-#   count = length(var.private_subnets)
-
-#   allocation_id = aws_eip.ngw[count.index].id
-#   subnet_id         = aws_subnet.private[count.index].id
-
-#   tags = {
-#     Name = "${var.vpc_name}-Private-NGW-${var.availability_zones[count.index]}"
-#   }
-# }
-
 resource "aws_ec2_transit_gateway_vpc_attachment" "private_accesscontrol" {
   vpc_id                                          = aws_vpc.service.id
   subnet_ids                                      = aws_subnet.private.*.id
