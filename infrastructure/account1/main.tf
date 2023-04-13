@@ -12,8 +12,9 @@ locals {
   public_subnets    = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets   = ["10.0.3.0/24", "10.0.4.0/24"]
 
-  account_id   = data.aws_caller_identity.current.account_id
-  cluster_name = "cicd-eks"
+  account_id         = data.aws_caller_identity.current.account_id
+  staging_account_id = data.terraform_remote_state.account2.outputs.account_id
+  cluster_name       = "cicd-eks"
 }
 
 module "vpc" {

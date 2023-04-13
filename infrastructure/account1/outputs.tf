@@ -56,3 +56,17 @@ output "cluster_name" {
   description = "Kubernetes Cluster Name"
   value       = module.eks.cluster_name
 }
+
+# ECR 
+output "ecr_resitry_url" {
+  value = aws_ecr_repository.ecr.repository_url
+}
+# CI/CD bot user info
+output "cicd_bot_access_key" {
+  value = aws_iam_access_key.cicd_bot_user_access_key.id
+}
+
+output "cicd_bot_secret_key" {
+  value     = aws_iam_access_key.cicd_bot_user_access_key.secret
+  sensitive = true
+}
