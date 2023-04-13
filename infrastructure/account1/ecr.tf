@@ -1,28 +1,19 @@
-# IAM 
-resource "aws_iam_user" "cicd_bot" {
-  name = "cicd_bot"
-}
-
-resource "aws_iam_access_key" "cicd_bot_user_access_key" {
-  user = aws_iam_user.cicd_bot.name
-}
-
 # ECR 
 resource "aws_ecr_repository" "ecr" {
   name = "simple-web-server"
 }
 
-# ECR Policy
-data "aws_iam_policy_document" "ecr_policy" {
+# # ECR Policy
+data "aws_iam_policy_document" "cicd_bot" {
   statement {
-    sid    = "cicd-bot-policy"
+    sid    = "cicdpolicy"
     effect = "Allow"
 
     principals {
       type = "AWS"
       identifiers = [
-        "arn:aws:iam::${local.account_id}:user/cicd_bot",
-        "arn:aws:iam::${local.staging_account_id}:user/cicd_bot"
+        "arn:aws:iam::${local.account_id}:user/smgu1",
+        "arn:aws:iam::${local.staging_account_id}:user/smgu2"
       ]
     }
 
@@ -41,6 +32,13 @@ data "aws_iam_policy_document" "ecr_policy" {
       "ecr:BatchDeleteImage",
       "ecr:SetRepositoryPolicy",
       "ecr:DeleteRepositoryPolicy",
+      "ecr:GetAuthorizationToken"
     ]
   }
+}
+
+resource "aws_ecr_repository_policy" "cicd_bot" {
+  repository = aws_ecr_repository.ecr.name
+
+  policy = data.aws_iam_policy_document.cicd_bot.json
 }
